@@ -42,16 +42,36 @@
     </dl>
   </section>
 
+  <section class="kpis" aria-label="Radar at a glance">
+    <div class="kpi"><span>Ranked board</span><b id="kpi-board">—</b></div>
+    <div class="kpi"><span>Watchlist</span><b id="kpi-watchlist">—</b></div>
+    <div class="kpi"><span>Pre-token / live</span><b id="kpi-split">—</b></div>
+    <div class="kpi"><span>Median fitted multiple</span><b id="kpi-multiple">—</b></div>
+    <div class="kpi"><span>Validation median error</span><b id="kpi-valerr">—</b></div>
+    <div class="kpi"><span>Top 10 implied value</span><b id="kpi-top10">—</b></div>
+    <div class="kpi"><span>Snapshot date</span><b id="kpi-date">—</b></div>
+  </section>
+
   <section class="how" aria-labelledby="how-title">
     <h2 id="how-title">How the radar works</h2>
-    <p class="formula">implied = round( TVL ^ 0.85 × 2 × growth × maturity )</p>
-    <p>Growth is 1 + clamped 7-day change × 0.75, with the change clamped to
+    <p class="formula" id="how-formula">implied = round( TVL ^ 0.85 × 2 × growth × maturity )</p>
+    <p id="how-text">Growth is 1 + clamped 7-day change × 0.75, with the change clamped to
     −60% … +120% (missing change counts as 0). Maturity is 0.5 + min(age, 1095 days)
     ÷ 1095 × 0.5, where age is days since first listing (365 days when unlisted).
     The same function scores every row: no protocol name is hardcoded anywhere,
     and no row is hand-picked. The farm plan in the detail panel is generated
     in-page from the row's own category, chains, TVL and age, by the same rules
     the board program uses — it is a plan template, not a guarantee of a token.</p>
+    <dl class="fitfacts">
+      <div class="fact wide"><dt>Fit method</dt><dd id="fit-method">—</dd></div>
+      <div class="fact"><dt>Global fitted multiple</dt><dd id="fit-multiple">—</dd></div>
+      <div class="fact"><dt>Fitted per category</dt><dd id="fit-cats">—</dd></div>
+      <div class="fact"><dt>Live protocols fitted</dt><dd id="fit-n">—</dd></div>
+      <div class="fact wide"><dt>Validation method</dt><dd id="val-method">—</dd></div>
+      <div class="fact"><dt>Validation set</dt><dd id="val-n">—</dd></div>
+      <div class="fact"><dt>Validation median error</dt><dd id="val-error">—</dd></div>
+      <div class="fact"><dt>Within 2× of market cap</dt><dd id="val-within">—</dd></div>
+    </dl>
   </section>
 
   <div class="controls" role="search" aria-label="Board controls">
@@ -80,9 +100,9 @@
     <main>
       <section id="board-section" aria-labelledby="board-title">
         <h2 id="board-title" class="visually-hidden">Ranked board</h2>
-        <div class="panel table-wrap">
+        <div class="panel table-wrap" tabindex="0" role="region" aria-labelledby="board-caption">
           <table id="board-table">
-            <caption>Pre-token protocols, strongest implied value first. Select a row for its model breakdown and farm plan.</caption>
+            <caption id="board-caption">Pre-token protocols, strongest implied value first. Select a row for its model breakdown and farm plan.</caption>
             <thead>
               <tr>
                 <th scope="col"><button type="button" data-sort="rank">Rank</button></th>
@@ -98,15 +118,16 @@
             <tbody id="board-body"></tbody>
           </table>
           <p class="empty" id="board-empty" hidden>No protocol matches that filter. Clear the search or change a filter to see the board again.</p>
+          <p class="visually-hidden" role="status" id="sort-status"></p>
         </div>
       </section>
 
       <section id="live-section" aria-labelledby="live-title" hidden>
         <h2 id="live-title">Already trading — not ranked</h2>
         <p class="live-note">These protocols already have a token, so the market's own market cap is shown — never a model value. They are set aside from the pre-token ranking, and exchanges are excluded entirely.</p>
-        <div class="panel table-wrap">
+        <div class="panel table-wrap" tabindex="0" role="region" aria-labelledby="live-caption">
           <table id="live-table">
-            <caption>Live-token protocols by market cap, largest first.</caption>
+            <caption id="live-caption">Live-token protocols by market cap, largest first.</caption>
             <thead>
               <tr>
                 <th scope="col">Protocol</th>
@@ -119,6 +140,27 @@
             </thead>
             <tbody id="live-body"></tbody>
           </table>
+        </div>
+      </section>
+
+      <section id="excluded-section" aria-labelledby="excluded-title">
+        <h2 id="excluded-title">Excluded — not a token launch</h2>
+        <p class="live-note" id="excluded-note">Excluded protocols are the pre-token ones the ranking sets aside — wrapped, staked or bridged products of a token that already trades, exchanges, and versioned pools.</p>
+        <p class="live-note" id="coverage-line">—</p>
+        <div class="panel table-wrap" tabindex="0" role="region" aria-labelledby="excluded-caption">
+          <table id="excluded-table">
+            <caption id="excluded-caption">Pre-token protocols set aside from the ranking, each with its reason.</caption>
+            <thead>
+              <tr>
+                <th scope="col">Protocol</th>
+                <th scope="col">Category</th>
+                <th scope="col">TVL</th>
+                <th scope="col">Reason</th>
+              </tr>
+            </thead>
+            <tbody id="excluded-body"></tbody>
+          </table>
+          <p class="empty" id="excluded-empty">No excluded protocols are listed in this build — every pre-token protocol the snapshot names is either ranked above or already trading.</p>
         </div>
       </section>
     </main>

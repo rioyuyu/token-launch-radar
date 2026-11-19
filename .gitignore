@@ -1,0 +1,8 @@
+# Sealed snapshot copy for local runs only; never commit it.
+snapshot.json
+# Program outputs (local runs).
+out/
+out1/
+out2/
+# Scratch files.
+stderr.txt
