@@ -19,6 +19,7 @@ const PUSH_LIST = [
   "screenshots/1-board.png",
   "screenshots/2-detail.png",
   "screenshots/3-filtered.png",
+  "screenshots/4-scatter.png",
   "LICENSE",
   "README.md",
   ".makefun/owner.json",

@@ -11,6 +11,7 @@
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts --input snapshot.json
 
+import { createHash } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -51,7 +52,12 @@ const issue = boardIssue(board, snapshot);
 if (issue !== null) fail(`the model wrote a board the gate refuses: ${issue}`);
 
 mkdirSync(out, { recursive: true });
-writeFileSync(join(out, 'board.json'), `${JSON.stringify({ rows: board })}\n`);
+// The seal: the first 8 hex of the sha256 of the exact board.json bytes,
+// so the dashboard's verification strip can show the board's fingerprint
+// and the page can re-hash its own rows and agree with it.
+const boardJson = `${JSON.stringify({ rows: board })}\n`;
+radar.board_seal = createHash('sha256').update(boardJson).digest('hex').slice(0, 8);
+writeFileSync(join(out, 'board.json'), boardJson);
 writeFileSync(join(out, 'data.js'), dataScript(radar));
 
 /** Copy one directory's regular files into `to`, skipping dot-names; returns the names copied. */

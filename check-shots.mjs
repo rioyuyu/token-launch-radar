@@ -12,7 +12,7 @@ const MAX_BYTES = 524288;
 const MAX_LONG = 1440;
 const MIN_SHORT = 800;
 
-const FILES = ['1-board.png', '2-detail.png', '3-filtered.png'];
+const FILES = ['1-board.png', '2-detail.png', '3-filtered.png', '4-scatter.png'];
 
 function pngSize(buf) {
   // PNG: 8-byte signature, then IHDR chunk (length 4 + type 4 + width 4 + height 4).
