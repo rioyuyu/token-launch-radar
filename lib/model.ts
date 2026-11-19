@@ -134,10 +134,28 @@ function medianMiss(pairs: { pred: number; actual: number }[]): number {
   return ms[Math.floor(ms.length / 2)]!;
 }
 
+/** 90th percentile of |predicted/actual| over a test set, as a multiplier (xN). */
+function p90Miss(pairs: { pred: number; actual: number }[]): number {
+  const ms = pairs.map(({ pred, actual }) => Math.pow(10, Math.abs(Math.log10(pred) - Math.log10(actual)))).sort((x, y) => x - y);
+  return ms[Math.min(ms.length - 1, Math.floor(0.9 * ms.length))]!;
+}
+
 /** The 7-day growth carry: 1 + weight x clamped change, as a multiplier. */
 export function growthCarry(change7d: number | null): number {
   const g = clamp(change7d ?? 0, GROWTH_CLAMP[0], GROWTH_CLAMP[1]);
   return 1 + (GROWTH_WEIGHT * g) / 100;
+}
+
+/** Median wait to launch in years, reading the 2-year ever-rate as a steady hazard: p = 1 − e^(−2λ), wait = ln2/λ. */
+export function medianWaitYears(odds: number): number {
+  const p = clamp(odds, 0.01, 0.95);
+  return Math.log(2) / (-Math.log(1 - p) / 2);
+}
+
+/** "~6 months" under a year, "~5.3 years" above it. */
+export function waitFmt(years: number): string {
+  if (years < 1) return `~${Math.max(1, Math.round(years * 12))} months`;
+  return `~${years.toFixed(1)} years`;
 }
 
 /** The age band an age in days falls in, or -1 when the age is unknown. */
@@ -149,6 +167,8 @@ function ageBand(age: number | null): number {
 export interface FitStep {
   name: string;
   miss: number;
+  /** 90th-percentile miss on the same held-out set. */
+  p90: number;
 }
 
 export interface Validation {
@@ -157,6 +177,14 @@ export interface Validation {
   miss: number;
   range_holds_pct: number;
   within_3x: number;
+  /** Share of the held-out set inside the P25-P75 residual band (50% if exact). */
+  range_holds_p25_p75_pct: number;
+  /** Leave-one-out launch-odds call: protocols predicted right / total / %. */
+  odds_correct: number;
+  odds_total: number;
+  odds_accuracy_pct: number;
+  /** Accuracy of calling every protocol live (the live share). */
+  odds_base_pct: number;
 }
 
 export interface FitResult {
@@ -165,9 +193,15 @@ export interface FitResult {
   n: number;
   formula: string;
   steps: FitStep[];
+  /** The same five steps priced leave-one-out, each token from the other 127. */
+  looSteps: FitStep[];
+  /** Range honesty on the leave-one-out residuals, in the full fit's bands. */
+  loo: { n: number; within_3x: number; p25_p75_pct: number; p10_p90_pct: number };
   validation: Validation;
   /** log10 residuals of the full fit, for the rows' ranges. */
   residP10: number;
+  residP25: number;
+  residP75: number;
   residP90: number;
 }
 
@@ -195,38 +229,45 @@ export function fitModel(snapshot: Snapshot): FitResult {
   const half = Math.floor(dated.length / 2);
   const train = dated.slice(0, half);
   const test = dated.slice(half);
-  const trainFit = fitPowerLaw(train);
-
-  const flatMult = train.reduce((t, q) => t + Math.pow(10, q.y) / Math.pow(10, q.x), 0) / train.length;
-  const trainResidByCat = new Map<string, number[]>();
-  for (const q of train) {
-    const r = q.y - (trainFit.a + trainFit.b * q.x);
-    const key = q.p.category ?? '(none)';
-    if (!trainResidByCat.has(key)) trainResidByCat.set(key, []);
-    trainResidByCat.get(key)!.push(r);
-  }
-  const catPremium = new Map<string, number>();
-  for (const [key, rs] of trainResidByCat) {
-    rs.sort((x, y) => x - y);
-    catPremium.set(key, rs.length >= 5 ? rs[Math.floor(rs.length / 2)]! : 0);
-  }
-  const predict = (q: (typeof fitPoints)[number], step: number): number => {
-    const base = Math.pow(10, trainFit.a + trainFit.b * q.x);
-    if (step === 0) return Math.pow(10, q.x) * flatMult;
-    if (step === 1) return base;
-    const withMom = base * growthCarry(q.p.change_7d);
-    if (step === 2) return withMom;
-    return withMom * Math.pow(10, catPremium.get(q.p.category ?? '(none)') ?? 0);
+  // One fit context per training set: the OLS curve, the flat multiple and
+  // the per-category premium (median train residual, 0 when fewer than 5).
+  type Pt = (typeof fitPoints)[number];
+  const fitCtx = (points: Pt[]): { fit: { a: number; b: number; n: number }; flatMult: number; catPremium: Map<string, number> } => {
+    const f = fitPowerLaw(points);
+    const flat = points.reduce((t, q) => t + Math.pow(10, q.y) / Math.pow(10, q.x), 0) / points.length;
+    const byCat = new Map<string, number[]>();
+    for (const q of points) {
+      const r = q.y - (f.a + f.b * q.x);
+      const key = q.p.category ?? '(none)';
+      if (!byCat.has(key)) byCat.set(key, []);
+      byCat.get(key)!.push(r);
+    }
+    const prem = new Map<string, number>();
+    for (const [key, rs] of byCat) {
+      rs.sort((x, y) => x - y);
+      prem.set(key, rs.length >= 5 ? rs[Math.floor(rs.length / 2)]! : 0);
+    }
+    return { fit: f, flatMult: flat, catPremium: prem };
   };
-  const stepNames = ['Flat TVL multiple', 'Power-law size curve', '+ 7-day momentum', '+ category premium'];
-  const steps: FitStep[] = stepNames.map((name, i) => ({
-    name,
-    miss: round2(medianMiss(test.map((q) => ({ pred: predict(q, i), actual: Math.pow(10, q.y) })))),
-  }));
+  const predictWith = (ctx: ReturnType<typeof fitCtx>, q: Pt, step: number): number => {
+    const base = Math.pow(10, ctx.fit.a + ctx.fit.b * q.x);
+    if (step === 0) return Math.pow(10, q.x) * ctx.flatMult;
+    if (step === 1) return base;
+    const carry = growthCarry(q.p.change_7d);
+    if (step === 2) return base * carry;
+    if (step === 3) return base * (2 - carry); // momentum, sign flipped: the negative control
+    return base * carry * Math.pow(10, ctx.catPremium.get(q.p.category ?? '(none)') ?? 0);
+  };
+  const stepNames = ['Flat TVL multiple', 'Power-law size curve', '+ 7-day momentum', 'Momentum, sign flipped', '+ category premium'];
+  const trainCtx = fitCtx(train);
+  const steps: FitStep[] = stepNames.map((name, i) => {
+    const pairs = test.map((q) => ({ pred: predictWith(trainCtx, q, i), actual: Math.pow(10, q.y) }));
+    return { name, miss: round2(medianMiss(pairs)), p90: round2(p90Miss(pairs)) };
+  });
 
   // The final model is step 2 (curve + momentum): the category premium is
   // measured in the backtest but not used, because it misses worse held-out.
-  const finalPred = (q: (typeof fitPoints)[number]): number => predict(q, 2);
+  const finalPred = (q: (typeof fitPoints)[number]): number => predictWith(trainCtx, q, 2);
   const testPairs = test.map((q) => ({ pred: finalPred(q), actual: Math.pow(10, q.y) }));
   const trainResid = train
     .map((q) => q.y - Math.log10(finalPred(q)))
@@ -237,27 +278,76 @@ export function fitModel(snapshot: Snapshot): FitResult {
     const r = Math.log10(actual) - Math.log10(pred);
     return r >= lo && r <= hi;
   }).length;
+  const lo25 = quantile(trainResid, 0.25);
+  const hi75 = quantile(trainResid, 0.75);
+  const inRange2575 = testPairs.filter(({ pred, actual }) => {
+    const r = Math.log10(actual) - Math.log10(pred);
+    return r >= lo25 && r <= hi75;
+  }).length;
+  const heldOutOdds = oddsHeldOut(snapshot);
   const validation: Validation = {
     n_train: train.length,
     n_test: test.length,
     miss: round2(medianMiss(testPairs)),
     range_holds_pct: round2((100 * inRange) / test.length),
     within_3x: round2((100 * testPairs.filter(({ pred, actual }) => Math.abs(Math.log10(pred) - Math.log10(actual)) <= Math.log10(3)).length) / test.length),
+    range_holds_p25_p75_pct: round2((100 * inRange2575) / test.length),
+    odds_correct: heldOutOdds.correct,
+    odds_total: heldOutOdds.total,
+    odds_accuracy_pct: heldOutOdds.accuracy_pct,
+    odds_base_pct: heldOutOdds.base_pct,
   };
 
   const fullResid = fitPoints
     .map((q) => q.y - Math.log10(curveValue(fit, Math.pow(10, q.x)) * growthCarry(q.p.change_7d)))
     .sort((x, y) => x - y);
-  return { a: round4(fit.a), b: round4(fit.b), n: fit.n, formula, steps, validation, residP10: quantile(fullResid, 0.1), residP90: quantile(fullResid, 0.9) };
+  const r10 = quantile(fullResid, 0.1);
+  const r25 = quantile(fullResid, 0.25);
+  const r75 = quantile(fullResid, 0.75);
+  const r90 = quantile(fullResid, 0.9);
+
+  // Leave-one-out over all fitted tokens: each token priced from a fit on
+  // the other 127, at the same five steps. The range counts use the full
+  // fit's residual bands, the ones the printed ranges use.
+  const looPairs: { pred: number; actual: number }[][] = stepNames.map(() => []);
+  const looResid: number[] = [];
+  for (const q of fitPoints) {
+    const ctx = fitCtx(fitPoints.filter((r) => r !== q));
+    stepNames.forEach((_, i) => looPairs[i]!.push({ pred: predictWith(ctx, q, i), actual: Math.pow(10, q.y) }));
+    looResid.push(q.y - Math.log10(predictWith(ctx, q, 2)));
+  }
+  const looSteps: FitStep[] = stepNames.map((name, i) => {
+    const pairs = looPairs[i]!;
+    return { name, miss: round2(medianMiss(pairs)), p90: round2(p90Miss(pairs)) };
+  });
+  const loo = {
+    n: fitPoints.length,
+    within_3x: round2((100 * looResid.filter((r) => Math.abs(r) <= Math.log10(3)).length) / looResid.length),
+    p25_p75_pct: round2((100 * looResid.filter((r) => r >= r25 && r <= r75).length) / looResid.length),
+    p10_p90_pct: round2((100 * looResid.filter((r) => r >= r10 && r <= r90).length) / looResid.length),
+  };
+  return { a: round4(fit.a), b: round4(fit.b), n: fit.n, formula, steps, looSteps, loo, validation, residP10: r10, residP25: r25, residP75: r75, residP90: r90 };
+}
+
+export interface OddsDetail {
+  /** The smoothed odds the board prices on. */
+  odds: number;
+  /** The age band's ever-rate, before the category cell smooths it. */
+  band: number;
+  /** The category cell's raw ever-rate in this band, or null when the cell is empty. */
+  cell: number | null;
+  /** Protocols in the category cell. */
+  cellN: number;
 }
 
 /**
- * Launch odds: the share of look-alikes that already record a token. The age
- * band's rate is smoothed toward the global rate (k=20); the cell (band x
- * category) is smoothed toward its band's rate (k=10). Unknown age falls back
- * to the global rate. Clamped to [0.05, 0.95]: no protocol is a sure thing.
+ * Launch odds with their derivation: the share of look-alikes that already
+ * record a token. The age band's rate is smoothed toward the global rate
+ * (k=20); the cell (band x category) is smoothed toward its band's rate
+ * (k=10). Unknown age falls back to the global rate. Clamped to [0.05, 0.95]:
+ * no protocol is a sure thing.
  */
-export function launchOdds(snapshot: Snapshot): (p: SnapshotProtocol, age: number | null) => number {
+export function launchOddsDetail(snapshot: Snapshot): (p: SnapshotProtocol, age: number | null) => OddsDetail {
   const global = snapshot.protocols.filter(isLive).length / snapshot.protocols.length;
   const bandRate: number[] = AGE_BANDS.map(([lo, hi]) => {
     const g = snapshot.protocols.filter((p) => {
@@ -278,8 +368,60 @@ export function launchOdds(snapshot: Snapshot): (p: SnapshotProtocol, age: numbe
     const band = ageBand(age);
     const base = band === -1 ? global : bandRate[band]!;
     const c = cell.get(`${band}|${p.category ?? '(none)'}`);
-    if (!c) return clamp(base, 0.05, 0.95);
-    return clamp((c.live + 10 * base) / (c.n + 10), 0.05, 0.95);
+    if (!c) return { odds: clamp(base, 0.05, 0.95), band: round4(base), cell: null, cellN: 0 };
+    return { odds: clamp((c.live + 10 * base) / (c.n + 10), 0.05, 0.95), band: round4(base), cell: round4(c.live / c.n), cellN: c.n };
+  };
+}
+
+/** The odds number alone, for callers that price on it. */
+export function launchOdds(snapshot: Snapshot): (p: SnapshotProtocol, age: number | null) => number {
+  const detail = launchOddsDetail(snapshot);
+  return (p, age) => detail(p, age).odds;
+}
+
+/**
+ * Launch odds held out: every protocol predicted from the rest (leave-one-out).
+ * The same smoothing as launchOdds, with the protocol itself subtracted from
+ * the global, band and cell counts first; live when the odds reach 0.5.
+ * Base rate is the live share: calling every protocol live.
+ */
+export function oddsHeldOut(snapshot: Snapshot): { correct: number; total: number; accuracy_pct: number; base_pct: number } {
+  const total = snapshot.protocols.length;
+  const totalLive = snapshot.protocols.filter(isLive).length;
+  const bandStats = AGE_BANDS.map(([lo, hi]) => {
+    const g = snapshot.protocols.filter((p) => {
+      const d = ageDays(snapshot.as_of, p.listed_at);
+      return d !== null && d >= lo && d < hi;
+    });
+    return { n: g.length, live: g.filter(isLive).length };
+  });
+  const cell = new Map<string, { n: number; live: number }>();
+  for (const p of snapshot.protocols) {
+    const key = `${ageBand(ageDays(snapshot.as_of, p.listed_at))}|${p.category ?? '(none)'}`;
+    const c = cell.get(key) ?? { n: 0, live: 0 };
+    c.n++;
+    if (isLive(p)) c.live++;
+    cell.set(key, c);
+  }
+  let correct = 0;
+  for (const p of snapshot.protocols) {
+    const lv = isLive(p) ? 1 : 0;
+    const g = (totalLive - lv) / (total - 1);
+    const band = ageBand(ageDays(snapshot.as_of, p.listed_at));
+    let base = g;
+    if (band !== -1) {
+      const bs = bandStats[band]!;
+      base = (bs.live - lv + 20 * g) / (bs.n - 1 + 20);
+    }
+    const c = cell.get(`${band}|${p.category ?? '(none)'}`);
+    const odds = c ? clamp((c.live - lv + 10 * base) / (c.n - 1 + 10), 0.05, 0.95) : clamp(base, 0.05, 0.95);
+    if ((odds >= 0.5) === !!lv) correct++;
+  }
+  return {
+    correct,
+    total,
+    accuracy_pct: round2((100 * correct) / total),
+    base_pct: round2((100 * totalLive) / total),
   };
 }
 
@@ -323,19 +465,24 @@ function mainAction(p: SnapshotProtocol, chain: string): string {
   return `Deposit $1,000 of USDC into ${n} on ${chain} and keep the position open.`;
 }
 
-/** Six concrete steps, each carrying its cost and its time. */
-export function farmSteps(p: SnapshotProtocol, age: number | null): string[] {
+/** Eight concrete steps, each carrying its cost and its time. The last three are the ones that keep a farm alive: review on the date the hold ends, the exit rule, and the budget and log. */
+export function farmSteps(p: SnapshotProtocol, age: number | null, asOf: string, odds: number, implied: number): string[] {
   const chain = p.chains.length > 0 ? p.chains[0]! : 'its main chain';
   const hold = holdDaysFor(age);
   const weeks = Math.ceil(hold / 7);
   const gas = gasPerTx(chain);
+  const reviewDate = new Date(Date.parse(`${asOf}T00:00:00Z`) + hold * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const threshold = Math.round(p.tvl_usd * 0.7).toLocaleString('en-US');
+  const fees = farmFees(p, age);
   const steps = [
     `Open a fresh wallet that holds only this farm's funds, write its seed phrase on paper, and fund it with $1,000 of USDC plus gas. Cost: about $${gas} of gas for the first transaction. Time: 10 minutes.`,
     `${mainAction(p, chain)} Cost: $1,000 of capital plus about $${gas} of gas. Time: 15 minutes to set up.`,
     `Do one qualifying action each week for ${weeks} weeks, such as a small deposit, a swap, or a vote in ${p.name}'s app. Cost: about $${gas} of gas a week. Time: 10 minutes a week.`,
     `Hold the position for at least ${hold} days so the activity lands in more than one snapshot. Cost: the $1,000 stays in the position. Time: ${hold} days.`,
     `Before withdrawing, open ${p.name}'s own points or rewards page from the link it publishes and claim only there, never through a link in a reply or ad. Cost: about $${gas} of gas to claim. Time: 10 minutes.`,
-    `Write the wallet, the dates, and every transaction hash in a farm log, then unwind the position once the claim is done. Cost: nothing but the log. Time: 10 minutes.`,
+    `Review on ${reviewDate} (${hold} days after the ${asOf} snapshot): check the position still qualifies, then renew it for another ${hold} days. The cohort at this age typically waits ${waitFmt(medianWaitYears(odds))} before a launch, so expect several renewals. Cost: nothing but the check. Time: 10 minutes.`,
+    `Exit at once if TVL falls under $${threshold} (70% of today's $${p.tvl_usd.toLocaleString('en-US')}), if withdrawals are paused, or if a token is announced: claim and leave — the snapshot that priced this row is already behind you. Cost: about $${gas} of gas to unwind. Time: 10 minutes.`,
+    `Total at risk: $1,000 of capital plus about $${fees} of gas. Log every transaction hash, date and balance; the model's implied value of $${implied.toLocaleString('en-US')} is a median fit, not a promise. Cost: nothing but the log. Time: 10 minutes.`,
   ];
   return steps.map((s) => (s.length > 600 ? `${s.slice(0, 596)}...` : s));
 }
@@ -350,6 +497,44 @@ export function farmFees(p: SnapshotProtocol, age: number | null): number {
 /** Active hours the farm takes: setup, weekly actions, claim and log. */
 export function farmHours(age: number | null): number {
   return round2(0.25 + 0.25 * Math.ceil(holdDaysFor(age) / 7) + 0.5);
+}
+
+export interface CategoryRow {
+  category: string;
+  /** Protocols in the category, live or not. */
+  rows: number;
+  /** Protocols in the category that record a token. */
+  live: number;
+  ever_pct: number;
+  /** The category's size-curve premium multiplier (1.00 when fewer than 5 live tokens). */
+  premium: number;
+}
+
+/**
+ * One row per category: how many protocols it holds, how many record a
+ * token, the ever-rate, and the size-curve premium — the median log residual
+ * of its live tokens against the full fit, 1.00 when fewer than five live
+ * tokens carry it. Sorted by row count, most first.
+ */
+export function categoryTable(snapshot: Snapshot, fit: { a: number; b: number }): CategoryRow[] {
+  const byCat = new Map<string, { rows: number; live: number; resid: number[] }>();
+  for (const p of snapshot.protocols) {
+    const key = p.category ?? 'uncategorised';
+    const c = byCat.get(key) ?? { rows: 0, live: 0, resid: [] };
+    c.rows++;
+    if (p.mcap_usd !== null && p.mcap_usd > 0 && p.tvl_usd > 0) {
+      c.live++;
+      c.resid.push(Math.log10(p.mcap_usd) - (fit.a + fit.b * Math.log10(p.tvl_usd)));
+    }
+    byCat.set(key, c);
+  }
+  return [...byCat.entries()]
+    .map(([category, c]) => {
+      c.resid.sort((x, y) => x - y);
+      const premium = c.resid.length >= 5 ? Math.pow(10, c.resid[Math.floor(c.resid.length / 2)]!) : 1;
+      return { category, rows: c.rows, live: c.live, ever_pct: round2((100 * c.live) / c.rows), premium: round2(premium) };
+    })
+    .sort((a, b) => b.rows - a.rows || (a.category < b.category ? -1 : 1));
 }
 
 // ---------------------------------------------------------------- the board
@@ -368,6 +553,12 @@ export interface RadarRow {
   watchlist: boolean;
   if_launched_usd: number;
   launch_odds: number;
+  /** The age band's ever-rate behind the odds, before the category cell smooths it. */
+  odds_band: number;
+  /** The category cell's raw ever-rate in this band, or null when the cell is empty. */
+  odds_cell: number | null;
+  /** Protocols in the category cell. */
+  odds_cell_n: number;
   implied_value_usd: number;
   range_low_usd: number;
   range_high_usd: number;
@@ -386,7 +577,7 @@ export interface RadarData {
   floor_usd: number;
   model_version: string;
   deposit_usd: number;
-  fit: { a: number; b: number; n: number; formula: string; steps: FitStep[] };
+  fit: { a: number; b: number; n: number; formula: string; steps: FitStep[]; looSteps: FitStep[]; loo: { n: number; within_3x: number; p25_p75_pct: number; p10_p90_pct: number } };
   validation: Validation;
   board_size: number;
   watchlist_size: number;
@@ -398,12 +589,18 @@ export interface RadarData {
   scatter: { live: { tvl: number; mcap: number }[]; board: { tvl: number; implied: number }[]; curve: { tvl: number; mcap: number }[] };
   excluded: { slug: string; name: string; reason: string }[];
   live_rows: { slug: string; name: string; tvl_usd: number; mcap_usd: number | null }[];
+  /** The market's 7-day change: TVL-weighted mean over the fitted live tokens. */
+  market_change_7d: number;
+  /** One row per category: rows, live count, ever-rate, premium. */
+  category_table: CategoryRow[];
+  /** First 8 hex of the sha256 of the exact board.json bytes, set by main.ts. */
+  board_seal: string;
 }
 
 /** The whole radar, from the snapshot: fit, odds, ranking, verdicts, accounting. */
 export function buildRadar(snapshot: Snapshot): { board: RadarRow[]; radar: RadarData } {
   const model = fitModel(snapshot);
-  const oddsOf = launchOdds(snapshot);
+  const oddsDetail = launchOddsDetail(snapshot);
   const watch = new Set(snapshot.watchlist);
 
   const liveCount = snapshot.protocols.filter(isLive).length;
@@ -420,7 +617,8 @@ export function buildRadar(snapshot: Snapshot): { board: RadarRow[]; radar: Rada
     }
     const age = ageDays(snapshot.as_of, p.listed_at);
     const ifLaunched = Math.max(1, Math.round(curveValue({ a: model.a, b: model.b }, p.tvl_usd) * growthCarry(p.change_7d)));
-    const odds = oddsOf(p, age);
+    const od = oddsDetail(p, age);
+    const odds = od.odds;
     const implied = Math.max(1, Math.round(ifLaunched * odds));
     const fees = farmFees(p, age);
     const slice = Math.round(implied * SLICE_FRACTION);
@@ -437,6 +635,9 @@ export function buildRadar(snapshot: Snapshot): { board: RadarRow[]; radar: Rada
       watchlist: watch.has(p.slug),
       if_launched_usd: ifLaunched,
       launch_odds: round4(odds),
+      odds_band: od.band,
+      odds_cell: od.cell,
+      odds_cell_n: od.cellN,
       implied_value_usd: implied,
       range_low_usd: Math.max(1, Math.round(implied * Math.pow(10, model.residP10))),
       range_high_usd: Math.round(implied * Math.pow(10, model.residP90)),
@@ -446,7 +647,7 @@ export function buildRadar(snapshot: Snapshot): { board: RadarRow[]; radar: Rada
       verdict: net > FARM_MARGIN_USD ? 'FARM' : net > 0 ? 'THIN' : 'SKIP',
       farm_hours: farmHours(age),
       farm_days: holdDaysFor(age),
-      farm_steps: farmSteps(p, age),
+      farm_steps: farmSteps(p, age, snapshot.as_of, odds, implied),
     });
   }
 
@@ -482,13 +683,18 @@ export function buildRadar(snapshot: Snapshot): { board: RadarRow[]; radar: Rada
   }
 
   const groupLabels = ['Bridges', 'Liquid staking/restaking', 'Exchange custody', 'Versioned', 'Wrapped/staked'];
+  // The market tide: TVL-weighted 7-day change of the live tokens the curve
+  // is fitted on, so a row's 7-day move can be read against it.
+  const fitted = snapshot.protocols.filter((p) => p.mcap_usd !== null && p.mcap_usd > 0 && p.change_7d !== null);
+  const marketTvl = fitted.reduce((t, p) => t + p.tvl_usd, 0);
+  const marketChange7d = round2(fitted.reduce((t, p) => t + p.tvl_usd * p.change_7d!, 0) / marketTvl);
   const radar: RadarData = {
     as_of: snapshot.as_of,
     source: snapshot.source,
     floor_usd: snapshot.floor_usd,
     model_version: MODEL_VERSION,
     deposit_usd: DEPOSIT_USD,
-    fit: { a: model.a, b: model.b, n: model.n, formula: model.formula, steps: model.steps },
+    fit: { a: model.a, b: model.b, n: model.n, formula: model.formula, steps: model.steps, looSteps: model.looSteps, loo: model.loo },
     validation: model.validation,
     board_size: ranked.length,
     watchlist_size: snapshot.watchlist.length,
@@ -520,6 +726,9 @@ export function buildRadar(snapshot: Snapshot): { board: RadarRow[]; radar: Rada
       .filter(isLive)
       .sort((a, b) => (b.mcap_usd ?? -1) - (a.mcap_usd ?? -1) || (a.slug < b.slug ? -1 : 1))
       .map((p) => ({ slug: p.slug, name: p.name, tvl_usd: p.tvl_usd, mcap_usd: p.mcap_usd })),
+    market_change_7d: marketChange7d,
+    category_table: categoryTable(snapshot, { a: model.a, b: model.b }),
+    board_seal: '',
   };
   return { board: ranked, radar };
 }
