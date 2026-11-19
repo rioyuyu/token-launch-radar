@@ -10,7 +10,7 @@
 <header class="top">
   <div>
     <h1>Launch Radar</h1>
-    <p class="sub">Pre-token protocols, ranked by what a launch would be worth if the record stays as it is. Every number carries a range, a bar or a verdict — nothing here is a bare number.</p>
+    <p class="sub">Pre-token protocols ranked by implied launch value.</p>
   </div>
   <dl class="meta">
     <div><dt>Snapshot</dt><dd id="h-date">—</dd></div>
@@ -21,85 +21,111 @@
 
 <main>
   <section class="kpis" aria-label="Key figures">
-    <article class="kpi"><span>Ranked</span><b id="k-ranked">—</b><small>protocols on the board</small></article>
-    <article class="kpi"><span>Implied value</span><b id="k-implied" class="gold">—</b><small>whole board, if every launch happened</small></article>
-    <article class="kpi"><span>Out-of-sample miss</span><b id="k-miss">—</b><small>held-out live tokens, median</small></article>
-    <article class="kpi"><span>Range holds</span><b id="k-holds">—</b><small>of held-out caps inside the range</small></article>
-    <article class="kpi"><span>Worth farming</span><b id="k-farm">—</b><small>rows with a FARM verdict</small></article>
-    <article class="kpi"><span>Best per hour</span><b id="k-best" class="gold">—</b><small>net of fees, best farm on the board</small></article>
+    <article class="kpi"><span>Ranked</span><b id="k-ranked">—</b><small id="k-ranked-s">—</small></article>
+    <article class="kpi"><span>Implied value</span><b id="k-implied" class="gold">—</b><small id="k-implied-s">—</small></article>
+    <article class="kpi"><span>Out-of-sample miss</span><b id="k-miss">—</b><small id="k-miss-s">—</small></article>
+    <article class="kpi"><span>Range holds</span><b id="k-holds">—</b><small id="k-holds-s">—</small></article>
+    <article class="kpi"><span>Launch odds, held out</span><b id="k-odds">—</b><small id="k-odds-s">—</small></article>
+    <article class="kpi"><span>Worth farming</span><b id="k-farm">—</b><small id="k-farm-s">—</small></article>
   </section>
 
-  <section class="panel model" aria-labelledby="model-title">
-    <h2 id="model-title">The model</h2>
-    <p class="formula" id="m-formula">—</p>
-    <p id="m-method">The size curve is fitted on live tokens that already trade: market cap against TVL. A protocol's if-launched value is its TVL through that curve; its implied value is if-launched times its launch odds.</p>
-    <div class="model-grid">
-      <div>
-        <h3>Stepwise held-out backtest</h3>
-        <ol class="steps" id="m-steps"></ol>
-        <p class="note">Each step is scored the same way: fit on the older half of dated live tokens, predict the newer half, report the median miss.</p>
-      </div>
-      <div>
-        <h3>Held-out validation</h3>
-        <dl class="facts" id="m-valid"></dl>
-        <h3>Deposit &amp; verdicts</h3>
-        <p id="m-verdict">—</p>
-      </div>
-    </div>
+  <section class="panel acct" aria-labelledby="acct-title">
+    <h2 id="acct-title">758 protocols read — where each one went</h2>
+    <div class="segbar" id="segbar" role="img" aria-label="Accounting bar: protocols split by outcome"></div>
+    <ul class="legend" id="acct-legend"></ul>
   </section>
 
-  <section class="panel board" aria-labelledby="board-title">
-    <h2 id="board-title">The board</h2>
+  <section class="panel board" aria-label="The board">
     <div class="toolbar">
       <label class="search"><span class="vh">Search protocols</span><input type="search" id="q" placeholder="Search name or slug" autocomplete="off"></label>
+      <div class="segs" role="group" aria-label="Filter by segment">
+        <button type="button" data-seg="ALL" aria-pressed="true">All <b id="s-all">0</b></button>
+        <button type="button" data-seg="WL" aria-pressed="false">Watchlist <b id="s-wl">0</b></button>
+        <button type="button" data-seg="OFF" aria-pressed="false">Off list <b id="s-off">0</b></button>
+        <button type="button" data-seg="BELOW" aria-pressed="false">Below floor <b id="s-below">0</b></button>
+      </div>
       <div class="verdicts" role="group" aria-label="Filter by verdict">
         <button type="button" data-v="ALL" aria-pressed="true">All <b id="c-all">0</b></button>
         <button type="button" data-v="FARM" aria-pressed="false">FARM <b id="c-farm">0</b></button>
         <button type="button" data-v="THIN" aria-pressed="false">THIN <b id="c-thin">0</b></button>
         <button type="button" data-v="SKIP" aria-pressed="false">SKIP <b id="c-skip">0</b></button>
       </div>
-      <label class="toggle"><input type="checkbox" id="wl-only"> Watchlist only</label>
+    </div>
+    <div class="toolbar row2">
+      <div class="whatif" role="group" aria-label="Plan size">
+        <span class="grp-label">Deposit</span>
+        <button type="button" data-dep="1000" aria-pressed="true">$1,000</button>
+        <button type="button" data-dep="10000" aria-pressed="false">$10,000</button>
+      </div>
+      <div class="whatif" role="group" aria-label="Drop share to farmers">
+        <span class="grp-label">Drop share</span>
+        <button type="button" data-drop="3.5" aria-pressed="false">3.5%</button>
+        <button type="button" data-drop="5" aria-pressed="true">5%</button>
+        <button type="button" data-drop="7" aria-pressed="false">7%</button>
+        <button type="button" data-drop="14" aria-pressed="false">14%</button>
+      </div>
+      <button type="button" class="csv-btn" id="csv">Export CSV</button>
       <label>Category <select id="cat"><option value="all">All categories</option></select></label>
       <label>Chain <select id="chain"><option value="all">All chains</option></select></label>
+      <button type="button" class="csv-btn" id="reset">Reset</button>
+      <button type="button" class="csv-btn" id="hide-summary" aria-pressed="false">Hide summary</button>
     </div>
     <p class="count" id="count" role="status">—</p>
-    <div class="table-wrapper" tabindex="0" role="region" aria-labelledby="board-caption">
-      <table id="board">
-        <caption id="board-caption">Ranked board: pre-token protocols by implied value</caption>
-        <thead><tr>
-          <th scope="col" data-key="rank" data-type="number"><button type="button">Rank</button></th>
-          <th scope="col">Protocol</th>
-          <th scope="col" data-key="tvl" data-type="number"><button type="button">TVL</button></th>
-          <th scope="col" data-key="ch7" data-type="number"><button type="button">7D</button></th>
-          <th scope="col" data-key="age" data-type="number"><button type="button">No token</button></th>
-          <th scope="col" data-key="if" data-type="number"><button type="button">If launched</button></th>
-          <th scope="col" data-key="odds" data-type="number"><button type="button">Odds</button></th>
-          <th scope="col" data-key="implied" data-type="number"><button type="button">Implied value + range</button></th>
-          <th scope="col" data-key="net" data-type="number"><button type="button">Net of fees</button></th>
-          <th scope="col">Verdict</th>
-          <th scope="col">Farm plan</th>
-        </tr></thead>
-        <tbody id="rows"></tbody>
-      </table>
+    <p class="verify" id="verify" role="status">Checking the board…</p>
+    <div class="board-layout">
+      <div class="table-wrapper" tabindex="0" role="region" aria-labelledby="board-caption">
+        <table id="board">
+          <caption id="board-caption">Ranked board: pre-token protocols by implied value</caption>
+          <thead><tr>
+            <th scope="col" data-key="rank" data-type="number"><button type="button">Rank</button></th>
+            <th scope="col">Protocol</th>
+            <th scope="col" data-key="tvl" data-type="number"><button type="button">TVL</button></th>
+            <th scope="col" data-key="ch7" data-type="number"><button type="button">7D</button></th>
+            <th scope="col" data-key="age" data-type="number"><button type="button">Tracked</button></th>
+            <th scope="col" data-key="odds" data-type="number"><button type="button">Launch odds</button></th>
+            <th scope="col" data-key="implied" data-type="number"><button type="button">Implied value + range</button></th>
+            <th scope="col" data-key="net" data-type="number"><button type="button">Net of fees · Verdict</button></th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <aside class="panel audit" aria-label="Model audit">
+        <div class="tabs" role="tablist" aria-label="Model audit views">
+          <button type="button" role="tab" id="tab-check" aria-selected="true" aria-controls="panel-check">Out-of-sample check</button>
+          <button type="button" role="tab" id="tab-price" aria-selected="false" aria-controls="panel-price">How a row is priced</button>
+        </div>
+        <div id="panel-check" role="tabpanel" aria-labelledby="tab-check">
+          <h3>Does it hold on tokens it never saw?</h3>
+          <table class="mini">
+            <thead><tr><th scope="col">Step</th><th scope="col">Each left out</th><th scope="col">Older → newer</th></tr></thead>
+            <tbody id="audit-steps"></tbody>
+          </table>
+          <p class="note">Each cell: typical miss · far (P90) miss.</p>
+          <h3>Is the printed range honest?</h3>
+          <ul class="audit-list" id="audit-range"></ul>
+          <p class="note" id="audit-note">—</p>
+        </div>
+        <div id="panel-price" role="tabpanel" aria-labelledby="tab-price" hidden>
+          <h3>How a row is priced</h3>
+          <p class="formula" id="m-formula">—</p>
+          <ol class="steps" id="price-steps"></ol>
+          <p class="note" id="m-verdict">—</p>
+          <h3>Categories with the most rows</h3>
+          <table class="mini">
+            <thead><tr><th scope="col">Category</th><th scope="col">Rows with token</th><th scope="col">Ever</th><th scope="col">Premium</th></tr></thead>
+            <tbody id="cat-rows"></tbody>
+          </table>
+        </div>
+      </aside>
     </div>
-    <p class="note">Click a row to open its detail. Sorting moves the rows themselves — the order you see is the order in the page. Net of fees is the farmer's expected take-home on the $1,000 deposit, not the protocol's value.</p>
-  </section>
-
-  <section class="panel" aria-labelledby="acct-title">
-    <h2 id="acct-title">758 protocols read — where each one went</h2>
-    <div class="segbar" id="segbar" role="img" aria-label="Accounting bar: protocols split by outcome"></div>
-    <ul class="legend" id="acct-legend"></ul>
-    <p class="note">The watchlist is a floor, never a ceiling: the board ranks protocols the watchlist does not name too, because a protocol below the floor is no worse a subject.</p>
+    <p class="note" id="net-note">—</p>
   </section>
 
   <section class="panel" aria-labelledby="scatter-title">
     <h2 id="scatter-title">Market cap on TVL — the curve the board is priced off</h2>
     <svg id="scatter" viewBox="0 0 720 420" role="img" aria-label="Scatter plot of market cap against TVL on log scales"></svg>
     <p class="legend-line"><i class="dot grey"></i> live token that trades <i class="dot blue"></i> board protocol (implied value) <i class="line-sample"></i> fitted size curve</p>
-    <p class="note">Both axes are log scales. A protocol far above the curve would be dear for its size; far below it, cheap — if it ever launches.</p>
   </section>
-
-  <p class="verify" id="verify" role="status">Checking the board…</p>
 
   <section class="panel detail" aria-labelledby="detail-title">
     <h2 id="detail-title">Detail</h2>
@@ -114,7 +140,17 @@
         <h3 id="d-name">—</h3>
         <p id="d-sub" class="muted">—</p>
         <dl class="facts" id="d-breakdown"></dl>
+        <h3>Nearest traded comparables</h3>
+        <table class="mini">
+          <thead><tr><th scope="col">Protocol</th><th scope="col">TVL</th><th scope="col">Market cap</th></tr></thead>
+          <tbody id="d-comp-rows"></tbody>
+        </table>
+        <h3>How the figure is made</h3>
+        <ol class="steps" id="d-how"></ol>
         <h3>Farm plan</h3>
+        <div class="strip" id="d-strip"></div>
+        <table class="mini matrix" id="d-matrix"></table>
+        <div id="d-lines"></div>
         <p id="d-plan-meta" class="muted">—</p>
         <ol class="steps" id="d-steps"></ol>
         <h3>What would make this wrong</h3>
@@ -122,7 +158,7 @@
       </div>
     </div>
     <div id="panel-live" role="tabpanel" aria-labelledby="tab-live" hidden>
-      <p class="note">These protocols already record a token, so they are not ranked — they are the evidence the curve is fitted on. <span id="live-count"></span></p>
+      <p class="note">Already record a token — the evidence the curve is fitted on. <span id="live-count"></span></p>
       <div class="table-wrapper" tabindex="0" role="region" aria-labelledby="live-caption">
         <table>
           <caption id="live-caption">Protocols whose token already trades</caption>
@@ -132,7 +168,7 @@
       </div>
     </div>
     <div id="panel-excluded" role="tabpanel" aria-labelledby="tab-excluded" hidden>
-      <p class="note">Set aside by the watchlist rule, with the reason each time. <span id="ex-count"></span></p>
+      <p class="note">Set aside by the watchlist rule. <span id="ex-count"></span></p>
       <div class="table-wrapper" tabindex="0" role="region" aria-labelledby="ex-caption">
         <table>
           <caption id="ex-caption">Excluded protocols and why</caption>
@@ -147,6 +183,7 @@
 <footer>
   <p id="foot-source">—</p>
   <p>A protocol on this board <strong>records no token</strong> — never that it has none. Its DefiLlama record may simply not carry one. Implied values are this entry's own claim, never make.fun's.</p>
+  <p class="keys">j k move · enter open · / search · esc close</p>
 </footer>
 <script src="data.js"></script>
 <script src="app.js"></script>

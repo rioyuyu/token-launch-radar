@@ -1,5 +1,6 @@
-/* Launch Radar — dark terminal. Navy/black, amber headline value, teal FARM,
-   amber THIN, grey SKIP. Dense small type, one 8px spacing scale. */
+/* Layout: compact model band above the board so ~10 board rows fit in a
+   1440x1200 shot; the farm-plan cell is a one-liner, the full plan lives
+   only in the detail view. */
 :root{
   --bg:#070b12; --panel:#0d1420; --panel2:#111b2c; --line:#1e2c44;
   --ink:#d7e0ec; --muted:#8494a9; --faint:#5b6b82;
@@ -10,42 +11,50 @@
 }
 *{box-sizing:border-box}
 html{color-scheme:dark}
-body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans)}
-h1{font-size:30px;line-height:1.1;margin:0;letter-spacing:-.5px}
-h2{font-size:16px;margin:0 0 12px}
-h3{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:20px 0 8px}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--sans)}
+h1{font-size:28px;line-height:1.1;margin:0;letter-spacing:-.5px}
+h2{font-size:16px;margin:0 0 10px}
+h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 6px}
 p{margin:0 0 8px}
-main{max-width:1180px;margin:0 auto;padding:0 16px 32px}
-.top{max-width:1180px;margin:0 auto;padding:24px 16px 16px;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:flex-end}
-.sub{color:var(--muted);max-width:640px;margin:8px 0 0}
+main{max-width:1300px;margin:0 auto;padding:0 16px 32px}
+.top{max-width:1300px;margin:0 auto;padding:20px 16px 12px;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:flex-end}
+.sub{color:var(--muted);max-width:640px;margin:6px 0 0}
 .meta{display:flex;gap:24px;margin:0;flex-wrap:wrap}
 .meta div{display:grid;gap:2px}
 .meta dt{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint)}
 .meta dd{margin:0;font-family:var(--mono);font-size:13px}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .muted{color:var(--muted)}
-.note{color:var(--muted);font-size:12.5px;margin:10px 0 0}
+.note{color:var(--muted);font-size:12px;margin:8px 0 0}
 .gold{color:var(--gold)}
 
 /* KPI strip */
-.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:8px 0 16px}
-.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:6px 0 14px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 .kpi span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
-.kpi b{display:block;font-family:var(--mono);font-size:22px;margin:4px 0 2px}
+.kpi b{display:block;font-family:var(--mono);font-size:22px;margin:3px 0 1px}
 .kpi small{color:var(--faint);font-size:11px;line-height:1.35;display:block}
 
 /* Panels */
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+.acct{padding:12px 16px}
+.acct h2{margin-bottom:8px}
+.acct .legend{margin-top:8px}
 .segbar{display:flex;height:26px;border-radius:6px;overflow:hidden;border:1px solid var(--line)}
 .segbar i{display:block;height:100%}
 .legend{list-style:none;display:flex;flex-wrap:wrap;gap:6px 18px;margin:12px 0 0;padding:0;font-size:12.5px;color:var(--muted)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
 .legend b{color:var(--ink);font-family:var(--mono);font-weight:600}
-.formula{font-family:var(--mono);font-size:17px;color:var(--gold);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
-.model-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 32px}
-.steps{margin:0;padding-left:20px}
-.steps li{margin-bottom:8px}
+/* Compact model band: formula on one line, three short columns below it. */
+.formula{font-family:var(--mono);font-size:16px;color:var(--gold);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-bottom:10px}
+.model-grid{display:grid;grid-template-columns:1fr 1.2fr;gap:6px 28px}
+.model-grid p{font-size:12.5px;line-height:1.45;margin:0}
+.model-grid h3:not(:first-child){margin-top:10px}
+.steps{margin:0;padding-left:18px;font-size:12.5px}
+.steps li{margin-bottom:3px}
 .steps li b{font-family:var(--mono);color:var(--gold)}
+.facts-line{font-family:var(--mono);font-size:12px;line-height:1.5}
+.facts-line b{color:var(--gold);font-weight:600}
 .facts{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;margin:0}
 .facts dt{color:var(--muted);font-size:12.5px}
 .facts dd{margin:0;font-family:var(--mono);font-size:13px;text-align:right}
@@ -60,59 +69,101 @@ main{max-width:1180px;margin:0 auto;padding:0 16px 32px}
 .line-sample{display:inline-block;width:22px;height:0;border-top:2px solid var(--gold);vertical-align:middle;margin:0 4px 0 12px}
 
 /* Toolbar */
-.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.toolbar.row2{margin-bottom:10px}
 .toolbar label{font-size:12.5px;color:var(--muted);display:flex;gap:6px;align-items:center}
-.toolbar input[type=search],.toolbar select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:7px 9px;font:13px var(--sans)}
-.toolbar input[type=search]{width:220px}
-.verdicts{display:flex;gap:6px}
-.verdicts button,.tabs button{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:6px 10px;font:12.5px var(--sans);cursor:pointer}
-.verdicts button[aria-pressed=true]{border-color:var(--gold);color:var(--gold)}
-.verdicts button b{font-family:var(--mono)}
+.toolbar input[type=search],.toolbar select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:6px 9px;font:13px var(--sans)}
+.toolbar input[type=search]{width:180px}
+.verdicts,.segs,.whatif{display:flex;gap:6px;align-items:center}
+.verdicts button,.segs button,.whatif button,.tabs button,.csv-btn{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:5px 8px;font:12px var(--sans);cursor:pointer;white-space:nowrap}
+.verdicts button[aria-pressed=true],.segs button[aria-pressed=true],.whatif button[aria-pressed=true]{border-color:var(--gold);color:var(--gold)}
+.verdicts button b,.segs button b{font-family:var(--mono)}
+.grp-label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint)}
+.csv-btn:hover{border-color:var(--gold)}
 .count{font-size:12.5px;color:var(--muted);margin:0 0 8px}
 
-/* Table — scrollable region, sticky header, min width so columns never crush */
+/* Table — scrollable region, sticky header, min width so columns never crush.
+   Rows are dense: 6px vertical padding, two-line protocol cells, value and
+   range on a single line with the bar below. The board sits in a two-column
+   layout with the audit panel on the right. */
+.board-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start}
+.board-layout .table-wrapper{max-block-size:min(640px,80vh)}
 .table-wrapper{overflow:auto;max-block-size:min(640px,80vh);max-inline-size:100%;border:1px solid var(--line);border-radius:8px}
 .table-wrapper:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-table{border-collapse:separate;border-spacing:0;min-inline-size:1020px;width:100%;font-size:13px}
-caption{text-align:left;font-size:12.5px;color:var(--muted);padding:8px 10px;background:var(--panel2)}
+table{border-collapse:separate;border-spacing:0;min-inline-size:780px;width:100%;font-size:12.5px}
+caption{text-align:left;font-size:12.5px;color:var(--muted);padding:6px 10px;background:var(--panel2)}
 thead th{position:sticky;top:0;z-index:1;background:var(--panel2);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:left;border-bottom:1px solid var(--line)}
-thead th,td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}
+thead th,td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}
 tbody tr{cursor:pointer}
 tbody tr:hover,tbody tr:focus-visible{background:#14233a}
 tbody tr[aria-selected=true]{background:#16283f;box-shadow:inset 3px 0 0 var(--gold)}
 td.num,th.num{text-align:right}
-td{font-family:var(--mono);font-size:12.5px}
+td{font-family:var(--mono);font-size:12px}
 td .name{font-family:var(--sans);font-weight:600;font-size:13px;color:var(--ink)}
 td .sub2{display:block;font-family:var(--mono);font-size:11px;color:var(--faint);font-weight:400}
 th:has(>button){padding:0}
-th button{display:block;width:100%;min-height:24px;background:none;border:0;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;text-align:left;padding:8px 10px;cursor:pointer}
+th button{display:block;width:100%;min-height:24px;background:none;border:0;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;text-align:left;padding:6px 8px;cursor:pointer}
 th button:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
 th[aria-sort=ascending] button::after{content:" ▲"}
 th[aria-sort=descending] button::after{content:" ▼"}
 .up{color:var(--green)}.down{color:var(--red)}
-.pill{display:inline-block;font:600 11px var(--sans);letter-spacing:.05em;border-radius:20px;padding:3px 9px}
+.pill{display:inline-block;font:600 11px var(--sans);letter-spacing:.05em;border-radius:20px;padding:2px 9px}
 .pill.FARM{background:#0d3b31;color:var(--teal);border:1px solid #1d6b58}
 .pill.THIN{background:#3d2f0d;color:var(--gold);border:1px solid #6b551d}
 .pill.SKIP{background:#232c3d;color:var(--grey);border:1px solid #35435c}
 .wl{display:inline-block;font:600 10px var(--sans);color:var(--blue);border:1px solid #2c4d75;border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:1px}
-.rbar{display:block;position:relative;height:4px;background:#1c2740;border-radius:2px;margin-top:5px;min-width:110px}
+.rbar{display:block;position:relative;height:4px;background:#1c2740;border-radius:2px;margin-top:4px;min-width:80px}
 .rbar i{position:absolute;top:0;bottom:0;background:var(--gold);border-radius:2px}
 .rbar b{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff}
-.range-txt{display:block;color:var(--muted);font-size:11px}
-#board td:nth-child(8){min-width:150px}
-.plan{font-family:var(--sans);font-size:12px;line-height:1.4;display:block;max-width:260px}
-.plan-meta{display:block;color:var(--faint);font-size:11px;margin-top:3px}
+.range-txt{color:var(--muted);font-size:11px;font-weight:400}
+#board td:nth-child(7){min-width:150px}
+/* Net cell: verdict pill + net on one line, per-hour and pays-from below. */
+.netcell .netval{font-weight:600;color:var(--ink)}
+.netcell .sub1{margin-top:2px}
+/* Second lines that must stay on one line (7D vs market, per-hour) so rows
+   stay two lines tall. */
+.sub1{display:block;font-family:var(--mono);font-size:11px;color:var(--faint);font-weight:400;white-space:nowrap}
+/* One-liner farm plan: action · chain, fees · hours · days. Two visual lines
+   at most; the full 6-step plan lives only in the detail view. */
+.plan{font-family:var(--sans);font-size:12px;line-height:1.4;display:block;max-width:250px}
 .empty{color:var(--muted)}
-.verify{border-radius:10px;padding:12px 14px;font-family:var(--mono);font-size:13px;margin:0 0 16px}
+.verify{border-radius:10px;padding:10px 14px;font-family:var(--mono);font-size:13px;margin:0 0 10px}
 .verify.ok{background:#0d2b1f;border:1px solid #1d6b58;color:#7fe3b8}
 .verify.bad{background:#2b1214;border:1px solid #6b2327;color:#f3a0a0}
+/* Audit panel (right of the board): backtest table, range honesty, pricing. */
+.audit{margin-bottom:0}
+.audit h3{margin-top:12px}
+.audit h3:first-of-type{margin-top:0}
+.audit .tabs{margin-bottom:10px}
+.mini{min-inline-size:0;font-size:12px}
+.mini th,.mini td{padding:5px 6px}
+.mini td.num{text-align:right;font-family:var(--mono)}
+.audit-list{list-style:none;margin:0;padding:0;font-size:12.5px}
+.audit-list li{display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-bottom:1px solid var(--line)}
+.audit-list li:last-child{border-bottom:0}
+.audit-list b{font-family:var(--mono);color:var(--gold);font-weight:600;white-space:nowrap}
+.audit .formula{font-size:14px}
 .tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
 .tabs button[aria-selected=true]{border-color:var(--gold);color:var(--gold)}
-footer{max-width:1180px;margin:0 auto;padding:0 16px 32px;color:var(--muted);font-size:12.5px}
+footer{max-width:1300px;margin:0 auto;padding:0 16px 32px;color:var(--muted);font-size:12.5px}
 footer strong{color:var(--ink)}
+.keys{font-family:var(--mono);color:var(--faint);margin-top:10px}
+/* Detail: farm-plan strip, drop x deposit matrix, audit group labels. */
+.strip{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:0 0 10px}
+.strip div{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.strip span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.strip b{display:block;font-family:var(--mono);font-size:15px;margin-top:2px}
+.matrix td.model{outline:2px solid var(--gold);outline-offset:-2px}
+.dline{font-size:12.5px;margin:0 0 4px}
+.dline b{font-family:var(--mono);color:var(--gold)}
+.audit-list .grp{color:var(--muted);font-size:11px;text-transform:uppercase;border:0}
+.mini tr.hl td{background:#1c230c}
+.legend .why{color:var(--faint)}
 @media (max-width:900px){
   .kpis{grid-template-columns:repeat(3,1fr)}
   .model-grid{grid-template-columns:1fr}
+  .board-layout{grid-template-columns:1fr}
+  .strip{grid-template-columns:repeat(3,1fr)}
 }
 @media (max-width:560px){
   .kpis{grid-template-columns:repeat(2,1fr)}
